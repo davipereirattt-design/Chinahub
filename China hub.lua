@@ -1,4 +1,4 @@
--- [[ MM2 HALLOWEEN CANDY FARM + UI HALLOWEEN ]] --
+-- [[ MM2 HALLOWEEN CANDY FARM + UI HALLOWEEN (ANTI-KICK & FLUTUAÇÃO) ]] --
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -94,7 +94,7 @@ FarmStroke.Thickness = 1
 FarmStroke.Parent = FarmButton
 
 -- Status
-local StatusLabel = Instance.new("TextLabel")
+local StatusLabel = Instance.new("TextLoop" or "TextLabel")
 StatusLabel.Parent = MainFrame
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Position = UDim2.new(0.1, 0, 0.75, 0)
@@ -109,7 +109,7 @@ FarmButton.MouseButton1Click:Connect(function()
     if getgenv().CandyFarm then
         FarmButton.Text = "Auto Candies: [ON]"
         FarmButton.TextColor3 = Color3.fromRGB(100, 255, 100)
-        StatusLabel.Text = "Status: Coletando doces..."
+        StatusLabel.Text = "Status: Flutuando e coletando..."
     else
         FarmButton.Text = "Auto Candies: [OFF]"
         FarmButton.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -117,37 +117,62 @@ FarmButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- [[ LÓGICA DE FARM DE DOCES NO MM2 ]] --
+-- [[ LÓGICA DE FLUTUAÇÃO E FARM DE DOCES NO MM2 (SEM KICK) ]] --
 task.spawn(function()
-    while task.wait(0.3) do
+    while task.wait(0.2) do
         if getgenv().CandyFarm then
             pcall(function()
                 local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    -- No MM2, os drops de eventos geralmente ficam espalhados pelo mapa ou dentro de uma pasta específica na Workspace
-                    -- Vamos procurar por partes chamadas "CoinVisual", "Candy", "Drop" ou itens na pasta de mapa
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+                    local hrp = char.HumanoidRootPart
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    
+                    -- Desativa a gravidade temporariamente para flutuar de leve
+                    humanoid.PlatformStand = true
+                    
                     local foundCandy = false
                     
+                    -- Varre a Workspace em busca de doces ou itens do evento
                     for _, obj in ipairs(Workspace:GetDescendants()) do
                         if not getgenv().CandyFarm then break end
                         
-                        -- Verifica se o objeto tem o nome relacionado a doces/moedas do evento
-                        if obj.Name == "Candy" or obj.Name == "CoinVisual" or obj:IsA("TouchTransmitter") then
-                            local parentPart = obj.Parent
+                        -- Nomes comuns de itens/doces no MM2
+                        if obj.Name == "Candy" or obj.Name == "CoinVisual" or obj.Name == "Drop" then
+                            local parentPart = obj:IsA("BasePart") and obj or obj.Parent
+                            
                             if parentPart and parentPart:IsA("BasePart") then
-                                -- Teleporta suavemente ou diretamente para o doce recolher
-                                char.HumanoidRootPart.CFrame = parentPart.CFrame + Vector3.new(0, 2, 0)
                                 foundCandy = true
-                                task.wait(0.1) -- Pequeno delay para registrar a coleta
+                                StatusLabel.Text = "Status: Pegando doce!"
+                                
+                                -- Movimento de aproximação mais suave (evita o ban por teleporte seco)
+                                local targetCFrame = parentPart.CFrame + Vector3.new(0, 3, 0)
+                                
+                                -- Interpolação manual leve para deslizar até o doce
+                                for i = 1, 5 do
+                                    if not getgenv().CandyFarm then break end
+                                    hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.4)
+                                    task.wait(0.03)
+                                end
+                                
+                                hrp.CFrame = targetCFrame
+                                task.wait(0.15) -- Pequeno respiro para o jogo registrar a coleta sem dar kick
                             end
                         end
                     end
                     
                     if not foundCandy then
-                        StatusLabel.Text = "Status: Procurando doces..."
-                    else
-                        StatusLabel.Text = "Status: Pegando doces!"
+                        StatusLabel.Text = "Status: Procurando doces pelo mapa..."
+                        humanoid.PlatformStand = false
+                        task.wait(1)
                     end
+                end
+            end)
+        else
+            -- Restaura o estado normal quando desativado
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChildOfClass("Humanoid") then
+                    char:FindFirstChildOfClass("Humanoid").PlatformStand = false
                 end
             end)
         end
